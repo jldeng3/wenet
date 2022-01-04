@@ -231,18 +231,18 @@ void ConnectionHandler::operator()() {
           }
         }
       } catch (beast::system_error const& se) {
-          // This indicates that the session was closed
-          if (se.code() != websocket::error::closed) {
-            if (decode_thread_ != nullptr) {
-              decode_thread_->join();
-            }
-            OnSpeechEnd();
-            LOG(ERROR) << se.code().message();
+        // This indicates that the session was closed
+        if (se.code() != websocket::error::closed) {
+          if (decode_thread_ != nullptr) {
+            decode_thread_->join();
           }
-        } catch (std::exception const& e) {
-              LOG(ERROR) << e.what();
+          OnSpeechEnd();
+          LOG(ERROR) << se.code().message();
         }
+      } catch (std::exception const& e) {
+        LOG(ERROR) << e.what();
       }
+    }
 
     LOG(INFO) << "Read all pcm data, wait for decoding thread";
     if (decode_thread_ != nullptr) {
