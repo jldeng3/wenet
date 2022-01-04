@@ -211,25 +211,38 @@ void ConnectionHandler::operator()() {
       // This buffer will hold the incoming message
       beast::flat_buffer buffer;
       // Read a message
-      ws_.read(buffer);
-      if (ws_.got_text()) {
-        std::string message = beast::buffers_to_string(buffer.data());
-        LOG(INFO) << message;
-        OnText(message);
-        if (got_end_tag_) {
-          break;
-        }
-      } else {
-        if (!got_start_tag_) {
-          OnError("Start signal is expected before binary data");
-        } else {
-          if (stop_recognition_) {
+      try {
+        ws_.read(buffer);
+        if (ws_.got_text()) {
+          std::string message = beast::buffers_to_string(buffer.data());
+          LOG(INFO) << message;
+          OnText(message);
+          if (got_end_tag_) {
             break;
           }
-          OnSpeechData(buffer);
+        } else {
+          if (!got_start_tag_) {
+            OnError("Start signal is expected before binary data");
+          } else {
+            if (stop_recognition_) {
+              break;
+            }
+            OnSpeechData(buffer);
+          }
+        }
+      } catch (beast::system_error const& se) {
+          // This indicates that the session was closed
+          if (se.code() != websocket::error::closed) {
+            if (decode_thread_ != nullptr) {
+              decode_thread_->join();
+            }
+            OnSpeechEnd();
+            LOG(ERROR) << se.code().message();
+          }
+        } catch (std::exception const& e) {
+              LOG(ERROR) << e.what();
         }
       }
-    }
 
     LOG(INFO) << "Read all pcm data, wait for decoding thread";
     if (decode_thread_ != nullptr) {
